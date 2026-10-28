@@ -1,0 +1,36 @@
+# Core UI
+streamlit
+
+# Audio transcription and processing
+openai-whisper
+yt-dlp
+pydub
+audioop-lts
+ffmpeg-python
+imageio-ffmpeg
+
+# LLM orchestration and Groq
+langchain
+langchain-core
+langchain-text-splitters
+langchain-groq
+langchain-chroma
+langchain-community
+langchain-huggingface
+groq
+
+# RAG: embeddings and vector database
+chromadb
+sentence-transformers
+transformers
+huggingface-hub
+
+# Translation (if using Hugging Face translation pipelines/models)
+# transformers and torch are included/installed as dependencies as needed
+
+# PDF and text export
+reportlab
+
+# Common utilities
+python-dotenv
+pydantic
