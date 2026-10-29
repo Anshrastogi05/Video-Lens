@@ -1,4 +1,4 @@
-# Video Intelligence Assistant
+# VideoLens - A Video Intelligence Assistant
 
 An end-to-end meeting and video intelligence pipeline that turns a YouTube URL or local media file into a searchable, structured knowledge base.
 
@@ -10,6 +10,16 @@ The system combines deterministic media processing with specialized AI services:
 - LLM-generated titles, summaries, action items, decisions, and open questions
 - Retrieval-augmented question answering over the transcript
 - Persistent Chroma vector storage for semantic search
+
+## VideoLens in action
+
+### Create a video intelligence brief
+
+![VideoLens dashboard](assets/videolens-dashboard.png)
+
+### Ask grounded questions about the video
+
+![VideoLens results and transcript Q&A](assets/videolens-results.png)
 
 ## Why this project is interesting
 
@@ -98,7 +108,7 @@ Python 3.10+ is recommended.
 
 ```powershell
 git clone <repository-url>
-cd Video_Agent
+cd VideoLens
 
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
