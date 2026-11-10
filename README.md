@@ -63,6 +63,11 @@ Chunked audio
 - `english`: local OpenAI Whisper inference
 - `hinglish`: Sarvam AI code-mixed speech-to-text, segmented into API-safe pieces
 
+Hinglish mode uses Sarvam's Batch Speech-to-Text API. Batch transcription can
+identify different speakers and includes speaker labels and timestamps in the
+generated transcript. The maximum wait time is controlled by
+`SARVAM_BATCH_TIMEOUT`.
+
 The engine choice is explicit, making cost, latency, language support, and privacy tradeoffs visible to the caller.
 
 ### Structured meeting intelligence
@@ -79,6 +84,29 @@ The transcript is analyzed into:
 
 The RAG layer splits the transcript, embeds the chunks with `all-MiniLM-L6-v2`, persists them in Chroma, and retrieves the most relevant context for each question. The assistant is instructed to stay within the transcript and explicitly say when the answer is unavailable.
 
+## Current storage behavior
+
+Each analysis creates a unique job ID. Temporary audio files and chunks are
+stored under:
+
+```text
+downloads/jobs/<job_id>/
+```
+
+The Chroma vector store for the analysis is stored under:
+
+```text
+vector_db/jobs/<job_id>/
+```
+
+Audio processing files are deleted after the pipeline finishes. Failed vector
+jobs are removed, and completed vector stores are cleaned up after the number
+of days configured by `VECTOR_RETENTION_DAYS` (7 days by default).
+
+The current application does not yet provide persistent session history.
+Analysis results and chat messages are held in Streamlit session state, so they
+are lost when the application session ends or the workspace is cleared.
+
 ## Project structure
 
 ```text
@@ -93,7 +121,8 @@ The RAG layer splits the transcript, embeds the chunks with `all-MiniLM-L6-v2`, 
 │   ├── summarizer.py               # Title and map-reduce summary generation
 │   ├── extractor.py                # Actions, decisions, and questions
 │   ├── vector_store.py             # Chroma persistence and embeddings
-│   └── rag_engine.py               # Grounded transcript Q&A chain
+│   ├── rag_engine.py               # Grounded transcript Q&A chain
+│   └── job_storage.py              # Per-job storage and retention cleanup
 ├── utlis/
 │   └── audio_processors.py         # Download, normalize, and chunk audio
 ├── Requirements.txt
@@ -227,9 +256,22 @@ RAG retrieval provides the LLM with only the most relevant transcript sections. 
 
 - Replace hard-coded CLI sources with a typed configuration layer.
 - Add provider-agnostic transcription interfaces and retryable job checkpoints.
-- Hinglish mode uses Sarvam Batch API diarization and stores speaker labels/timestamps in the transcript. Sarvam Batch requires the `sarvamai` package and incurs Batch API usage costs.
+- Add persistent session history so users can reopen previous analyses,
+  transcripts, summaries, vector stores, and chat conversations.
+- Add a session-history view with search, sorting, rename, download, and delete
+  actions.
+- Store persistent metadata in SQLite for local deployments and PostgreSQL for
+  production deployments.
+- Move large production artifacts to object storage such as S3, while keeping
+  session metadata in the database.
+- Add background workers and a job queue for long-running transcription and
+  analysis tasks.
+- Add authentication, user/workspace isolation, and authorization checks.
+- Add retry handling, structured logging, monitoring, and job-level progress
+  tracking.
 - Add automated evaluation for transcript quality, extraction precision, and RAG grounding.
-- Expose the pipeline through a Streamlit or FastAPI interface with background jobs.
+- Add automated tests for provider failures, cleanup behavior, persistence,
+  and session restoration.
 - Add CI checks for formatting, type checking, security scanning, and secret detection.
 
 ## License
