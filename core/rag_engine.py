@@ -4,6 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from core.vector_store import build_vector_store, load_vector_store, get_retriever
+from core.reliability import retry_call
 
 def get_llm():
     return ChatGroq(
@@ -15,9 +16,9 @@ def get_llm():
 def format_docs(docs):
     return "\n\n".join([doc.page_content for doc in docs])
 
-def build_rag_chain(transcript:str):
+def build_rag_chain(transcript: str, vector_dir: str | None = None, collection_name: str | None = None):
 
-    vector_store = build_vector_store(transcript)
+    vector_store = build_vector_store(transcript, job_dir=vector_dir, collection_name=collection_name)
 
     retriever = get_retriever(vector_store, k = 4)
 
@@ -92,6 +93,6 @@ Context from meeting transcript:
 
 def ask_question(rag_chain, question:str) -> str:
     print(f"Question : {question}")
-    answer = rag_chain.invoke(question)
+    answer = retry_call(lambda: rag_chain.invoke(question), operation_name="Question answering")
     print(f"answer :{answer}")
     return answer

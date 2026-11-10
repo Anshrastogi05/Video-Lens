@@ -4,6 +4,7 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from core.reliability import retry_call
 import os 
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -34,7 +35,7 @@ def extract_action_items(transcript:str)->str:
         "Format as a numbered list. If none found say 'No action items found.'"
     )
 
-    return chain.invoke(transcript)
+    return retry_call(lambda: chain.invoke(transcript), operation_name="Action-item extraction")
 
 
 def extract_key_decisions(transcript: str) -> str:
@@ -43,7 +44,7 @@ def extract_key_decisions(transcript: str) -> str:
         "extract all key decisions made. Format as a numbered list. "
         "If none found say 'No key decisions found.'"
     )
-    return chain.invoke(transcript)
+    return retry_call(lambda: chain.invoke(transcript), operation_name="Decision extraction")
 
 
 def extract_questions(transcript: str) -> str:
@@ -52,4 +53,4 @@ def extract_questions(transcript: str) -> str:
         "or topics needing follow-up. Format as a numbered list. "
         "If none found say 'No open questions found.'"
     )
-    return chain.invoke(transcript)
+    return retry_call(lambda: chain.invoke(transcript), operation_name="Question extraction")

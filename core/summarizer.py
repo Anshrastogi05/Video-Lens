@@ -6,6 +6,7 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from core.reliability import retry_call
 
 load_dotenv()
 
@@ -48,7 +49,7 @@ def summarize(transcript: str) -> str:
 
     chunks = split_transcript(transcript)
 
-    chunk_summaries = [map_chain.invoke({"text": chunk}) for chunk in chunks]
+    chunk_summaries = [retry_call(lambda chunk=chunk: map_chain.invoke({"text": chunk}), operation_name="Transcript summarization") for chunk in chunks]
 
     combined = "\n\n".join(chunk_summaries)
 
@@ -71,7 +72,7 @@ def summarize(transcript: str) -> str:
         | StrOutputParser()
     )
 
-    return combined_chain.invoke(combined)
+    return retry_call(lambda: combined_chain.invoke(combined), operation_name="Summary consolidation")
 
 
 def generate_title(transcript: str) -> str:
@@ -96,4 +97,4 @@ def generate_title(transcript: str) -> str:
         | StrOutputParser()
     )
 
-    return title_chain.invoke(transcript[:2000])
+    return retry_call(lambda: title_chain.invoke(transcript[:2000]), operation_name="Title generation")

@@ -16,7 +16,7 @@ def get_embeddings():
     )
 
 
-def build_vector_store(transcript : str)->Chroma:
+def build_vector_store(transcript: str, job_dir: str | None = None, collection_name: str | None = None) -> Chroma:
     if not transcript.strip():
         raise ValueError("Transcript cannot be empty")
 
@@ -37,26 +37,27 @@ def build_vector_store(transcript : str)->Chroma:
     vector_store = Chroma.from_documents(
         documents= docs,
         embedding=embeddings,
-        collection_name=COLLECTION_NAME,
-        persist_directory=CHROMA_DIR
+        collection_name=collection_name or COLLECTION_NAME,
+        persist_directory=job_dir or CHROMA_DIR,
     )
 
     return vector_store
 
 
 
-def load_vector_store() ->Chroma:
-    if not os.path.isdir(CHROMA_DIR):
+def load_vector_store(job_dir: str | None = None, collection_name: str | None = None) -> Chroma:
+    vector_dir = job_dir or CHROMA_DIR
+    if not os.path.isdir(vector_dir):
         raise FileNotFoundError(
-            f"Vector store directory does not exist: {CHROMA_DIR}. "
+            f"Vector store directory does not exist: {vector_dir}. "
             "Build the vector store before loading it."
         )
 
     embeddings = get_embeddings()
     vector_store = Chroma(
-        collection_name=COLLECTION_NAME,
+        collection_name=collection_name or COLLECTION_NAME,
         embedding_function= embeddings,
-        persist_directory=CHROMA_DIR
+        persist_directory=vector_dir
     )
 
     return vector_store

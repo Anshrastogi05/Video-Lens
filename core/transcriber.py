@@ -4,7 +4,10 @@ import requests
 import argparse
 import glob
 import shutil
+import json
+from pathlib import Path
 from dotenv import load_dotenv
+from core.reliability import retry_call
 
 ffmpeg_path = shutil.which("ffmpeg")
 if not ffmpeg_path:
@@ -36,8 +39,12 @@ WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
 
 
 SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
-SARVAM_STT_TRANSLATE_URL = "https://api.sarvam.ai/speech-to-text-translate"
-SARVAM_MODEL = os.getenv("SARVAM_STT_MODEL", "saaras:v2.5")
+# Use the current STT endpoint. The legacy speech-to-text-translate endpoint
+# always returns English, which is why the old "hinglish" output was English.
+SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
+SARVAM_MODEL = os.getenv("SARVAM_STT_MODEL", "saaras:v4")
+SARVAM_MODE = os.getenv("SARVAM_MODE", "codemix")
+SARVAM_LANGUAGE_CODE = os.getenv("SARVAM_LANGUAGE_CODE", "unknown")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 _model = None
@@ -64,14 +71,19 @@ def transcribe_chunk_whisper(chunk_path: str) -> str:
 
 
 def _send_to_sarvam(piece_path: str) -> str:
-    """Send one ≤30s WAV file to Sarvam and return the English transcript."""
+    """Send one ≤30s WAV file to Sarvam and preserve Hindi-English code-mix."""
     headers = {"api-subscription-key": SARVAM_API_KEY}
 
     with open(piece_path, "rb") as f:
         files = {"file": (os.path.basename(piece_path), f, "audio/wav")}
-        data = {"model": SARVAM_MODEL, "with_diarization": "false"}
+        data = {
+            "model": SARVAM_MODEL,
+            "mode": SARVAM_MODE,
+            "language_code": SARVAM_LANGUAGE_CODE,
+            "with_timestamps": "true",
+        }
         response = requests.post(
-            SARVAM_STT_TRANSLATE_URL,
+            SARVAM_STT_URL,
             headers=headers,
             files=files,
             data=data,
@@ -83,7 +95,8 @@ def _send_to_sarvam(piece_path: str) -> str:
         print(f"Response body: {response.text}\n")
         response.raise_for_status()
 
-    return response.json().get("transcript", "")
+    payload = response.json()
+    return payload.get("transcript", "")
 
 
 def transcribe_chunk_sarvam(chunk_path: str) -> str:
@@ -107,12 +120,73 @@ def transcribe_chunk_sarvam(chunk_path: str) -> str:
 
         try:
             print(f"  → Sarvam piece {i + 1}/{total_pieces} ...")
-            full_text += _send_to_sarvam(piece_path) + " "
+            full_text += retry_call(
+                lambda: _send_to_sarvam(piece_path),
+                operation_name="Sarvam transcription",
+            ) + " "
         finally:
             if os.path.exists(piece_path):
                 os.remove(piece_path)
 
     return full_text.strip()
+
+
+def transcribe_file_sarvam_batch(
+    wav_path: str,
+    output_dir: str,
+    num_speakers: int | None = None,
+) -> str:
+    """Transcribe one complete recording with Sarvam speaker diarization."""
+    if not SARVAM_API_KEY:
+        raise RuntimeError("SARVAM_API_KEY is not set in environment / .env")
+
+    try:
+        from sarvamai import SarvamAI
+    except ImportError as exc:
+        raise RuntimeError(
+            "Sarvam Batch diarization requires the 'sarvamai' package. "
+            "Install dependencies with: python -m pip install -r Requirements.txt"
+        ) from exc
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    client = SarvamAI(api_subscription_key=SARVAM_API_KEY)
+    job_kwargs = {
+        "model": SARVAM_MODEL,
+        "mode": SARVAM_MODE,
+        "language_code": SARVAM_LANGUAGE_CODE,
+        "with_diarization": True,
+    }
+    if num_speakers is not None:
+        job_kwargs["num_speakers"] = num_speakers
+
+    print("Starting Sarvam Batch transcription with speaker diarization...")
+    job = client.speech_to_text_job.create_job(**job_kwargs)
+    job.upload_files(file_paths=[wav_path])
+    job.start()
+    job.wait_until_complete(timeout=int(os.getenv("SARVAM_BATCH_TIMEOUT", "1800")))
+    job.download_outputs(output_dir=str(output_path))
+
+    result_files = sorted(output_path.glob("*.json"))
+    if not result_files:
+        raise RuntimeError("Sarvam Batch completed without a JSON transcript output")
+
+    with result_files[0].open("r", encoding="utf-8") as result_file:
+        payload = json.load(result_file)
+
+    entries = payload.get("diarized_transcript", {}).get("entries", [])
+    if not entries:
+        raise RuntimeError("Sarvam Batch returned no diarized transcript entries")
+
+    formatted = []
+    for entry in entries:
+        speaker = entry.get("speaker_id", "unknown")
+        text = str(entry.get("transcript", "")).strip()
+        if text:
+            start = entry.get("start_time_seconds")
+            timestamp = f" [{start:.2f}s]" if isinstance(start, (int, float)) else ""
+            formatted.append(f"[Speaker {speaker}]{timestamp}: {text}")
+    return "\n".join(formatted)
 
    
 

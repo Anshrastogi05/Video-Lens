@@ -34,3 +34,4 @@ reportlab
 # Common utilities
 python-dotenv
 pydantic
+sarvamai

@@ -61,7 +61,7 @@ Chunked audio
 `core/transcriber.py` exposes one transcription interface with two modes:
 
 - `english`: local OpenAI Whisper inference
-- `hinglish`: Sarvam AI speech-to-text translation, segmented into API-safe pieces
+- `hinglish`: Sarvam AI code-mixed speech-to-text, segmented into API-safe pieces
 
 The engine choice is explicit, making cost, latency, language support, and privacy tradeoffs visible to the caller.
 
@@ -189,7 +189,10 @@ This makes one chat-completion request with `sarvam-105b-conversations` and prin
 | Variable           | Purpose                                                       | Default                                           |
 | ------------------ | ------------------------------------------------------------- | ------------------------------------------------- |
 | `SARVAM_API_KEY`   | Sarvam authentication                                         | Required for `hinglish` mode and Sarvam utilities |
-| `SARVAM_STT_MODEL` | Legacy Sarvam translation model used by `core/transcriber.py` | `saaras:v2.5`                                     |
+| `SARVAM_STT_MODEL` | Sarvam model used by `core/transcriber.py`       | `saaras:v4`                                       |
+| `SARVAM_MODE` | Sarvam output mode for Hinglish transcription         | `codemix`                                         |
+| `SARVAM_LANGUAGE_CODE` | Input language hint (`unknown` enables detection) | `unknown`                                      |
+| `SARVAM_BATCH_TIMEOUT` | Maximum wait for diarized Batch transcription (seconds) | `1800`                                      |
 | `GROQ_API_KEY`     | Groq authentication for analysis and RAG                      | Required for summaries, extraction, and Q&A       |
 | `GROQ_MODEL`       | Groq model used by analysis chains                            | `openai/gpt-oss-20b`                              |
 | `WHISPER_MODEL`    | Local Whisper model size                                      | `small`                                           |
@@ -224,7 +227,7 @@ RAG retrieval provides the LLM with only the most relevant transcript sections. 
 
 - Replace hard-coded CLI sources with a typed configuration layer.
 - Add provider-agnostic transcription interfaces and retryable job checkpoints.
-- Add diarization and timestamp-aware transcript storage.
+- Hinglish mode uses Sarvam Batch API diarization and stores speaker labels/timestamps in the transcript. Sarvam Batch requires the `sarvamai` package and incurs Batch API usage costs.
 - Add automated evaluation for transcript quality, extraction precision, and RAG grounding.
 - Expose the pipeline through a Streamlit or FastAPI interface with background jobs.
 - Add CI checks for formatting, type checking, security scanning, and secret detection.

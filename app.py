@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import os
+import uuid
 from pathlib import Path
 
 import streamlit as st
@@ -96,6 +97,8 @@ def sidebar() -> str:
 def analyze(source: str, language: str, name: str) -> None:
     from main import run_pipeline
     st.session_state.running = True
+    uploaded_source = Path(source) if source else None
+    upload_root = (DOWNLOAD_DIR / "uploads").resolve()
     with st.status("Preparing your intelligence brief", expanded=True) as status:
         try:
             st.write("Normalizing media and creating audio chunks")
@@ -110,6 +113,16 @@ def analyze(source: str, language: str, name: str) -> None:
             st.error(f"{type(exc).__name__}: {exc}")
         finally:
             st.session_state.running = False
+            # The pipeline has copied/processed the upload into its job directory.
+            # Remove the original upload after the request, but never delete paths
+            # outside the dedicated upload directory.
+            if uploaded_source:
+                try:
+                    resolved = uploaded_source.resolve()
+                    if resolved.parent == upload_root and resolved.is_file():
+                        resolved.unlink()
+                except OSError:
+                    pass
 
 
 def source_panel(language: str) -> None:
@@ -124,7 +137,11 @@ def source_panel(language: str) -> None:
         else:
             uploaded = st.file_uploader("Upload media", type=["mp4", "mov", "mkv", "webm", "mp3", "wav", "m4a", "flac"], label_visibility="collapsed")
             if uploaded:
-                path = DOWNLOAD_DIR / uploaded.name
+                # Never use a client-provided filename as a filesystem path.
+                suffix = Path(uploaded.name).suffix.lower()
+                upload_dir = DOWNLOAD_DIR / "uploads"
+                upload_dir.mkdir(exist_ok=True)
+                path = upload_dir / f"{uuid.uuid4().hex}{suffix}"
                 path.write_bytes(uploaded.getbuffer())
                 source, name = str(path), uploaded.name
                 st.success(f"{uploaded.name}  ·  {uploaded.size / 1024 / 1024:.1f} MB ready")
