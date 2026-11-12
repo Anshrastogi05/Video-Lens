@@ -35,3 +35,4 @@ reportlab
 python-dotenv
 pydantic
 sarvamai
+requests

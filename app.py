@@ -12,6 +12,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+try:
+    for key, value in st.secrets.items():
+        os.environ.setdefault(key, str(value))
+except FileNotFoundError:
+    pass
+
 ROOT = Path(__file__).resolve().parent
 DOWNLOAD_DIR = ROOT / "downloads"
 DOWNLOAD_DIR.mkdir(exist_ok=True)

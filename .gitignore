@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+.streamlit/secrets.toml
 
 __pycache__/
 *.py[cod]
@@ -9,3 +10,4 @@ downloads/*
 transcripts/*
 transcript_chunks/*
 vector_db/*
+
