@@ -21,6 +21,17 @@ The system combines deterministic media processing with specialized AI services:
 
 ![VideoLens results and transcript Q&A](assets/videolens-results.png)
 
+## Tech stack
+
+| Area | Technologies |
+| ---- | ------------ |
+| Language and interface | Python 3.10+, Streamlit |
+| Video and audio processing | `yt-dlp`, FFmpeg (bundled through `imageio-ffmpeg`), `pydub` |
+| Speech-to-text | OpenAI Whisper (local), Sarvam AI Speech-to-Text |
+| LLM orchestration and generation | LangChain, Groq API (`openai/gpt-oss-20b` by default) |
+| Embeddings and vector search | Hugging Face Sentence Transformers (`all-MiniLM-L6-v2`), ChromaDB |
+| Configuration and environment | `python-dotenv` |
+
 ## Why this project is interesting
 
 This is designed as a production-minded pipeline rather than a single prompt wrapped around a video file. Each stage has a clear responsibility, explicit inputs and outputs, and a replaceable implementation:
